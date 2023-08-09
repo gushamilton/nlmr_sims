@@ -1,0 +1,241 @@
+---
+title: "nlmr_simulations"
+author: "David Hughes"
+date: "2023-07-31"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+## Load needed packages ###
+library(tidyverse)
+library(broom)
+library(patchwork)
+library(mgcv)
+library(faux)
+
+## Load my functions ###
+f = list.files("functions/")
+for(file in f){
+  source(paste0("functions/",file))
+}
+```
+
+
+
+## Simulations to evaluate problems in non-linear mr analyses
+
+- what are the problems?
+
+  1. stratifying on raw exposure data generates a bias so we must generate an iv-free exposure.
+  2. when we stratify on the iv-free exposure the assumption that there is a constant genetic-exposure effect often appears to be invalidated.
+  3. a doubly ranked methods was devised to reduce the invalidity of the constant genetic-exposure effect. However, this does not appear to remove the bias and creates new problems. 
+  4. the standard error in the genetic-exposure effect is not constant across strata, in fact it tends to trend into either smaller or larger values, effectively saying that the accuracy of the genetic effect on exposure either increases or decreases with strata. This an not be. 
+
+
+## Simulate some correlated data
+
+```{r}
+mydata <- rnorm_multi(n = 25000, 
+                      mu = c(3, 27, 15),
+                      sd = c(2, 5, 4),
+                      r = c(0.3, 0.15, 0.55), 
+                      varnames = c("g", "x", "y"),
+                      empirical = FALSE)
+
+cor(as.matrix(mydata))^2
+
+
+```
+
+## now add transformed versions of the the exposure normal distribution 
+
+  - a uniform distribution
+  - a gamma distribution
+
+```{r}
+## UNIFORM
+a = mydata$x
+a = (a - mean(a) )/ sd(a)
+mydata$x_uni = pnorm( a, mean = 0, sd = 1)
+
+## GAMMA
+a = a + abs( min(a) )
+mydata$x_gamma = pgamma( a , shape = 3)
+
+## EXPONENTIAL
+mydata$x_exp = pexp(mydata$x_uni, rate = 4)
+
+## BETA
+a = a / max(a)
+mydata$x_beta = pbeta(a, shape1 = 4, shape2 = 3)
+
+```
+
+
+
+```{r, fig.width = 15, fig.height = 10}
+par(mfrow = c(3,3))
+hist(mydata$g, main = "PGS")
+hist(mydata$x, main = "exposure")
+hist(mydata$y, main = "outcome")
+hist(mydata$x_uni, main = "exposure uniform")
+hist(mydata$x_gamma, main = "exposure gamma")
+hist(mydata$x_exp, main = "exposure exponential")
+hist(mydata$x_beta, main = "exposure beta")
+```
+
+
+
+```{r}
+cor(as.matrix(mydata))^2
+```
+
+
+
+# OK EVERYTHING HAS BEEN WRITTEN INTO FUNCTIONS
+
+
+## NORMAL Distribution
+
+```{r}
+## simulate data
+test = sim_mydata(n = 100000, seed = 546372)
+## generate the summary statistics
+test_ss = generate_gx_sumstats( data = test, exposure = "x", k = 20 ) ## THIS RETURNS A LIST 
+        
+## redefine data set
+test = test_ss$wdata
+## define sumstats tibble
+ss = test_ss$ss
+
+## make figures
+myplot = generate_plots(ss_data = ss, simdata = test, exposure = "x", distribution_type = "normal")
+
+## print to file
+pdf(file = "figures/Simulated_Gene_Exp_Normal_Data.pdf", width = 13, height = 15)
+myplot
+dev.off()
+```
+
+
+```{r, fig.width = 13, fig.height = 15}
+# Take a look at the generated figure
+myplot
+```
+
+
+
+## UNIFORM Distribution
+
+```{r}
+## simulate data
+test = sim_mydata(n = 100000, seed = 546372)
+## generate the summary statistics
+test_ss = generate_gx_sumstats( data = test, exposure = "x_uni", k = 20 )
+## redefine data set
+test = test_ss$wdata
+## define sumstats tibble
+ss = test_ss$ss
+## make figures
+myplot = generate_plots(ss_data = ss, simdata = test, exposure = "x_uni", distribution_type = "uniform")
+## print to file
+pdf(file = "figures/Simulated_Gene_Exp_Uniform_Data.pdf", width = 13, height = 15)
+myplot
+dev.off()
+```
+
+## EXPONENTIAL Distribution
+
+```{r}
+## simulate data
+test = sim_mydata(n = 100000, seed = 546372)
+## generate the summary statistics
+test_ss = generate_gx_sumstats( data = test, exposure = "x_exp", k = 20 )
+## redefine data set
+test = test_ss$wdata
+## define sumstats tibble
+ss = test_ss$ss
+## make figures
+myplot = generate_plots(ss_data = ss, simdata = test, exposure = "x_exp", distribution_type = "exponential")
+## print to file
+pdf(file = "figures/Simulated_Gene_Exp_Exponential_Data.pdf", width = 13, height = 15)
+myplot
+dev.off()
+```
+
+
+
+## BETA Distribution
+
+```{r}
+## simulate data
+test = sim_mydata(n = 100000, seed = 546372)
+## generate the summary statistics
+test_ss = generate_gx_sumstats( data = test, exposure = "x_beta", k = 20 )
+## redefine data set
+test = test_ss$wdata
+## define sumstats tibble
+ss = test_ss$ss
+## make figures
+myplot = generate_plots(ss_data = ss, simdata = test, exposure = "x_beta", distribution_type = "beta")
+## print to file
+pdf(file = "figures/Simulated_Gene_Exp_Beta_Data.pdf", width = 13, height = 15)
+myplot
+dev.off()
+```
+
+Now, let's look at outcomes:
+
+```{r}
+## UNIFORM
+a = mydata$y
+a = (a - mean(a) )/ sd(a)
+mydata$y_uni = pnorm( a, mean = 0, sd = 1)
+
+## GAMMA
+a = a + abs( min(a) )
+mydata$y_gamma = pgamma( a , shape = 3)
+
+## EXPONENTIAL
+mydata$y_exp = pexp(mydata$y_uni, rate = 4)
+
+## BETA
+a = a / max(a)
+mydata$y_beta = pbeta(a, shape1 = 4, shape2 = 3)
+
+```
+
+Now to generate outcome data
+
+```{r}
+par(mfrow = c(3,3))
+hist(mydata$g, main = "PGS")
+hist(mydata$x, main = "exposure")
+hist(mydata$y, main = "outcome")
+hist(mydata$y_uni, main = "outcome uniform")
+hist(mydata$y_gamma, main = "outcome gamma")
+hist(mydata$y_exp, main = "outcome exponential")
+hist(mydata$y_beta, main = "outcome beta")
+```
+
+```{r}
+test = sim_mydata_outcomes(n = 100000, seed = 54632)
+test_ss = generate_all_sumstats( data = test, exposure = "x_beta", outcome = "y_exp")
+
+## redefine data set
+test = test_ss$wdata
+## define sumstats tibble
+ss = test_ss$ss
+## make figures
+ss
+myplot = generate_plots(ss_data = ss, simdata = test, exposure = "x_beta", outcome = "y_exp", distribution_type = "beta")
+myplot
+## print to file
+pdf(file = "figures/Simulated_Gene_Outcome_Beta_Data.pdf", width = 13, height = 40)
+myplot
+dev.off()
+
+```
+
