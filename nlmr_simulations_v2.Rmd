@@ -13,10 +13,13 @@ library(tidyverse)
 library(broom)
 library(patchwork)
 library(mgcv)
+library(metafor)
 library(faux)
 
 ## Load my functions ###
 f = list.files("functions/")
+
+f
 for(file in f){
   source(paste0("functions/",file))
 }
@@ -224,18 +227,90 @@ hist(mydata$y_beta, main = "outcome beta")
 test = sim_mydata_outcomes(n = 100000, seed = 54632)
 test_ss = generate_all_sumstats( data = test, exposure = "x_beta", outcome = "y_exp")
 
+
 ## redefine data set
 test = test_ss$wdata
 ## define sumstats tibble
 ss = test_ss$ss
 ## make figures
-ss
-myplot = generate_plots(ss_data = ss, simdata = test, exposure = "x_beta", outcome = "y_exp", distribution_type = "beta")
+
+myplot = generate_plots_outcome(ss_data = ss, simdata = test, exposure = "x_beta", outcome = "y_exp", distribution_type = "beta")
 myplot
 ## print to file
-pdf(file = "figures/Simulated_Gene_Outcome_Beta_Data.pdf", width = 13, height = 40)
-myplot
+pdf(file = "figures/Simulated_Gene_Outcome_Beta_Data.pdf", width = 13, height = 20)
 dev.off()
+
+```
+
+```{r}
+generate_outcome_plots_individual(exposure = "x", outcome = "y_exp", seed = 20)
+analyses <- crossing(
+  exposures = c("x", "x_exp", "x_beta", "x_uni", "x_gamma"),
+outcomes = c("y", "y_exp", "y_beta", "y_uni", "y_gamma")
+)
+map2(.x = analyses$exposures, .y = analyses$outcomes, seed = 2023, .f = generate_outcome_plots_individual)
+
+```
+
+Now to get a few sets of replicates
+```{r}
+
+map2(.x = g$exposures, .y = g$outcomes, seed = 2023, reps = 50, .f = generate_outcome_plots_linear_replicates)
+
+```
+
+Now to do the same with a U-shaped relationship between exposure - outcome
+
+```{r}
+
+analyses$exposures
+
+map2(.x = analyses$exposures[21:25], .y = analyses$outcomes[21:25], seed = 2324, reps = 50, .f = generate_outcome_plots_u_replicates)
+```
+
+Now for thresholded
+
+```{r}
+
+map2(.x = analyses$exposures[21:25], .y = analyses$outcomes[21:25], seed = 2021, reps = 50, .f = generate_outcome_plots_thresh_replicates)
+
+```
+
+Randomly selected linear
+
+```{r}
+  dat <-  sim_mydata_outcomes(n = 25000, seed = 123) 
+
+
+
+
+map2(.x = analyses$exposures, .y = analyses$outcomes, seed = 2023, reps = 50, .f = generate_outcome_plots_replicates_with_selection)
+```
+
+
+```{r}
+ dat <-  sim_mydata_outcomes(n = 25000, seed = 122) 
+sum_stats2 <- generate_all_sumstats(exposure = "x", outcome = "y", datain = dat)
+sum_stats2 <- sum_stats2$ss
+resid <- sum_stats %>%
+  filter(strata_method == "ranked")
+resid
+ ##### Non-linearity tests #####
+
+  p_res <- sum_stats %>%
+  filter(strata_method != "full") %>%
+
+    group_by(strata_method, replicate) %>%
+    nest() %>%
+    mutate(res = map(data, get_pvals)) %>%
+    unnest(res) %>%
+  ungroup()
+
+ranked_ps <- p_res %>%
+  filter(strata_method == "ranked")
+resid_ps <- p_res %>%
+  filter(strata_method == "residual")
+
 
 ```
 

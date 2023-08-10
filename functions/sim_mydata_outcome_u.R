@@ -1,9 +1,9 @@
-sim_mydata_outcomes <- function(n = 25000,
-                       mu = c(3, 27, 15), 
-                       sd = c(2, 5, 4), 
-                       r = c(0.3, 0.15, 0.55), 
+sim_mydata_outcomes_u <- function(n = 100000,
+                       mu = c(0, 0, 0), 
+                       sd = c(1, 1, 1), 
+                       r = c(0.3, 0.02, 0.1), 
                        varnames = c("g", "x", "y"),
-                       seed = 12345
+                       seed = seed
                        ){ 
   
   ########################
@@ -14,12 +14,13 @@ sim_mydata_outcomes <- function(n = 25000,
   ########################
   ## Simulate the data 
   ########################
-  mydata <- faux::rnorm_multi(n = 25000, 
+  mydata <- faux::rnorm_multi(n = 100000, 
                               mu = mu,
                               sd = sd,
                               r = r, 
                               varnames = varnames,
-                              empirical = FALSE)
+                              empirical = FALSE) %>%
+    mutate(y = rnorm(100000) + 0.05 * x^2)
   
   ########################
   ## produce transformed 
