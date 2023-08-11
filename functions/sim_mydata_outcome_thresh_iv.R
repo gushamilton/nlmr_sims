@@ -1,4 +1,4 @@
-sim_mydata_outcomes_u <- function(n = 100000,
+sim_mydata_outcomes_thresh_iv <- function(n = 100000,
                        mu = c(0, 0, 0), 
                        sd = c(1, 1, 1), 
                        r = c(0.3, 0.02, 0.1), 
@@ -20,7 +20,9 @@ sim_mydata_outcomes_u <- function(n = 100000,
                               r = r, 
                               varnames = varnames,
                               empirical = FALSE) %>%
-    mutate(y = rnorm(100000) + 0.05 * x^2) %>%
+    mutate(x = g*0.05*x + x) %>%
+    mutate(y = 0.05 * x + rnorm(1e5))
+    
   
   ########################
   ## produce transformed 
@@ -69,6 +71,7 @@ sim_mydata_outcomes_u <- function(n = 100000,
   ########################
   return(mydata)
 }
+
 
 
 

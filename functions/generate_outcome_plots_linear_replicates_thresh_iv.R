@@ -1,19 +1,9 @@
-generate_outcome_plots_replicates_with_selection <- function(exposure, outcome, seed = "123", reps = 10) {
+generate_outcome_plots_linear_replicates_thresh_iv <- function(exposure, outcome, seed = "123", reps = 10) {
   
-  get_pvals = function(df){
-    p_quadratic <- metafor::rma(beta_mr ~ mean, (se_mr)^2, method="FE", data = df, control=list(maxiter=1000))$pval[2]
-    p_Q <- 1 - pchisq(metafor::rma(beta_mr, vi=(se_mr)^2, data = df, control=list(maxiter=1000))$QE, df=(9))
-    tibble(quadratic_p = p_quadratic, Q_p = p_Q)
-  }
-  
-  # set correlation of 0.5 and 5 % removed
 
   replicate_internally <- function(n_rep) {
   seed = seed + n_rep
-  dat <-  sim_mydata_outcomes(n = 50000, seed = seed) %>%
-    mutate(remove = rnorm_pre(x, mu = 0, sd = 1, r = 0.7)) %>%
-    filter(remove > quantile(remove, 0.1)) 
-    
+  dat <-  sim_mydata_outcomes_thresh_iv(n = 100000, seed = seed)
   dat_with_both <- generate_all_sumstats(data = dat, exposure = exposure, outcome = outcome, k = 10)
   
   ## redefine data set
@@ -26,20 +16,27 @@ generate_outcome_plots_replicates_with_selection <- function(exposure, outcome, 
     mutate(replicate = n_rep)
   }
   
-  dat <-  sim_mydata_outcomes(n = 50000, seed = seed) %>%
-    mutate(remove = rnorm_pre(x, mu = 0, sd = 1, r = 0.7)) %>%
-    filter(remove > quantile(remove, 0.1)) 
-  
   d <- map_dfr(1:reps, replicate_internally)
   
+  sum_stats_dat <- d %>%
+    group_by(strata, strata_method) %>%
+    summarise_all(., mean) %>%
+    ungroup()
+  
+  get_pvals = function(df){
+    p_quadratic <- metafor::rma(beta_mr ~ mean, (se_mr)^2, method="FE", data = df, control=list(maxiter=1000))$pval[2]
+    p_Q <- 1 - pchisq(metafor::rma(beta_mr, vi=(se_mr)^2, data = df, control=list(maxiter=1000))$QE, df=(9))
+    tibble(quadratic_p = p_quadratic, Q_p = p_Q)
+  }
   
   p_res <- d %>%
     filter(strata_method != "full") %>%
+    
     group_by(strata_method, replicate) %>%
     nest() %>%
     mutate(res = map(data, get_pvals)) %>%
     unnest(res) %>%
-    ungroup() 
+    ungroup()
   
   ranked_ps <- p_res %>%
     filter(strata_method == "ranked") %>%
@@ -50,12 +47,11 @@ generate_outcome_plots_replicates_with_selection <- function(exposure, outcome, 
     mutate(quadratic_p = if_else(quadratic_p ==0, 1e-300, quadratic_p)) %>%
     mutate(Q_p = if_else(Q_p ==0, NA, Q_p))
   
+  dat <-  sim_mydata_outcomes_thresh_iv(n = 100000, seed = seed)
   
-  sum_stats_dat <- d %>%
-    group_by(strata, strata_method) %>%
-    summarise_all(., mean) %>%
-    ungroup()
+  ## make figures
   
+
   
   r2_gene_exposure <- round(sum_stats_dat$r2_gene_exposure[1], digits = 4)
   r2_gene_outcome <- round(sum_stats_dat$r2_gene_outcome[1], digits = 4)
@@ -141,6 +137,7 @@ generate_outcome_plots_replicates_with_selection <- function(exposure, outcome, 
     labs(x = "instrument", y = "outcome", title = paste0("iv ~ outcome, R2 = ", r2_gene_outcome, " p = ", p_gene_outcome))
   master_plot =  (p4  + p5) /    p1 / p2 / p3  / ( p6 + p7 + p8)
   
+  
   p9 <-hwep::qqpvalue(resid_ps$quadratic_p, method = "ggplot2", return = T) + ggtitle("Quadratic P's (Residual)")
   
   p10 <- hwep::qqpvalue(resid_ps$quadratic_p, method = "ggplot2", return = T) + ggtitle("Quadratic P's (Ranked)")
@@ -150,8 +147,10 @@ generate_outcome_plots_replicates_with_selection <- function(exposure, outcome, 
   p12 <- hwep::qqpvalue(resid_ps$Q_p, method = "ggplot2", return = T) + ggtitle("Het P's (Ranked)")
   
   master_plot =  (p4  + p5) /    p1 / p2 / p3  / ( p6 + p7 + p8) / (p10 + p9) / (p12+p11)
-  
-  ggsave(master_plot, filename = paste0("figures/linear_selection/", exposure,"_",outcome,"_linear_effect_with_selection_", reps,"_reps.pdf"), width = 13, height = 20)
+  ggsave(master_plot, filename = paste0("figures/varied_iv/", exposure,"_",outcome,"_thresh_iv_linear_effect_", reps,"_reps.pdf"), width = 14, height = 22)
 }
+
+
+
 
 

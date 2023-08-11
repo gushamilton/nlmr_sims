@@ -255,7 +255,7 @@ map2(.x = analyses$exposures, .y = analyses$outcomes, seed = 2023, .f = generate
 Now to get a few sets of replicates
 ```{r}
 
-map2(.x = g$exposures, .y = g$outcomes, seed = 2023, reps = 50, .f = generate_outcome_plots_linear_replicates)
+map2(.x = analyses$exposures, .y = analyses$outcomes, seed = 2023, reps = 100, .f = generate_outcome_plots_linear_replicates)
 
 ```
 
@@ -265,14 +265,14 @@ Now to do the same with a U-shaped relationship between exposure - outcome
 
 analyses$exposures
 
-map2(.x = analyses$exposures[21:25], .y = analyses$outcomes[21:25], seed = 2324, reps = 50, .f = generate_outcome_plots_u_replicates)
+map2(.x = analyses$exposures[11:20], .y = analyses$outcomes[11:20], seed = 2324, reps = 50, .f = generate_outcome_plots_u_replicates)
 ```
 
 Now for thresholded
 
 ```{r}
 
-map2(.x = analyses$exposures[21:25], .y = analyses$outcomes[21:25], seed = 2021, reps = 50, .f = generate_outcome_plots_thresh_replicates)
+map2(.x = analyses$exposures[11:25], .y = analyses$outcomes[11:25], seed = 2021, reps = 50, .f = generate_outcome_plots_thresh_replicates)
 
 ```
 
@@ -285,6 +285,11 @@ Randomly selected linear
 
 
 map2(.x = analyses$exposures, .y = analyses$outcomes, seed = 2023, reps = 50, .f = generate_outcome_plots_replicates_with_selection)
+```
+
+
+```{r}
+map2(.x = analyses$exposures, .y = analyses$outcomes, seed = 2023, reps = 50, .f = generate_outcome_plots_linear_replicates_thresh_iv)
 ```
 
 
@@ -311,6 +316,7 @@ ranked_ps <- p_res %>%
 resid_ps <- p_res %>%
   filter(strata_method == "residual")
 
+d <- sim_mydata_outcomes_thresh_iv(n = 100000, seed = 12)
 
 ```
 
