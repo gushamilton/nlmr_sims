@@ -244,7 +244,7 @@ dev.off()
 ```
 
 ```{r}
-generate_outcome_plots_individual(exposure = "x", outcome = "y_exp", seed = 20)
+
 analyses <- crossing(
   exposures = c("x", "x_exp", "x_beta", "x_uni", "x_gamma"),
 outcomes = c("y", "y_exp", "y_beta", "y_uni", "y_gamma")
@@ -253,7 +253,7 @@ map2(.x = analyses$exposures, .y = analyses$outcomes, seed = 2023, .f = generate
 
 ```
 
-Now to get a few sets of replicates
+Now to get a few sets of replicates - using a linear IV
 ```{r}
 
 map2(.x = analyses$exposures, .y = analyses$outcomes, seed = 2023, reps = 100, .f = generate_outcome_plots_linear_replicates)
@@ -266,7 +266,7 @@ Now to do the same with a U-shaped relationship between exposure - outcome
 
 analyses$exposures
 
-map2(.x = analyses$exposures, .y = analyses$outcomes, seed = 2324, reps = 50, .f = generate_outcome_plots_u_replicates)
+map2(.x = analyses$exposures, .y = analyses$outcomes, seed = 2324, reps = 100, .f = generate_outcome_plots_u_replicates)
 ```
 
 Now for thresholded
@@ -280,12 +280,8 @@ map2(.x = analyses$exposures, .y = analyses$outcomes, seed = 2021, reps = 100, .
 Randomly selected linear
 
 ```{r}
-  dat <-  sim_mydata_outcomes(n = 25000, seed = 123) 
 
-
-
-
-map2(.x = analyses$exposures, .y = analyses$outcomes, seed = 2023, reps = 100, .f = generate_outcome_plots_replicates_with_selection)
+map2(.x = analyses$exposures[10:25], .y = analyses$outcomes[10:25], seed = 2023, reps = 100, .f = generate_outcome_plots_replicates_with_selection)
 ```
 
 Now thresholded IV
@@ -297,12 +293,157 @@ map2(.x = analyses$exposures, .y = analyses$outcomes, seed = 2023, reps = 100, .
 Now for a real exposure:
 
 ```{r}
-dat_bmi <- vroom::vroom("~/data/non-linear/pheno/analysis_data.tsv.gz", col_select = "body_mass_index_bmi")
+
+dat_bmi <- vroom::vroom("~/data/non-linear/pheno/analysis_data.tsv.gz", col_select = c("body_mass_index_bmi", "bmi_prs"))
+
+p1 <- dat_bmi %>%
+  mutate(scale = scale(body_mass_index_bmi)) %>%
+  mutate(strata = generate_ranked_strata(exposure = body_mass_index_bmi, k = 9, instrument = bmi_prs, seed = 123)) %>%
+  ggplot(aes(x = scale)) +
+  geom_density() +
+  facet_wrap(~strata) +
+  xlim(-5,7.5) +
+  theme_bw() +
+  xlab("Body mass index (kg/m2)") +
+  ylab("Doubly-ranked method")
+
+p1
+p2 <- dat_bmi %>%
+  drop_na(bmi_prs, body_mass_index_bmi) %>%
+  mutate(iv_free = lm(body_mass_index_bmi ~ bmi_prs, data = .,)$resid) %>%
+  mutate(strata = generate_residualized_strata(iv_free, k = 9)) %>%
+  ggplot(aes(x = scale(body_mass_index_bmi))) +
+  geom_density() +
+  facet_wrap(~strata) +
+   xlim(-5,7.5) +
+  theme_bw() +
+  xlab("Body mass index (kg/m2)") +
+  ylab("Residual method")
 
 
 
-generate_outcome_plots_bmi(exposure = "x", outcome = "y", reps = 100, seed = 34323)
+
+p3 <- dat_bmi %>%
+  mutate(scale = scale(body_mass_index_bmi)) %>%
+  mutate(strata = generate_ranked_strata(exposure = body_mass_index_bmi, k = 9, instrument = bmi_prs, seed = 123)) %>%
+  ggplot(aes(x = body_mass_index_bmi, y = bmi_prs, colour = strata)) +
+  geom_point(alpha = 0.01) + 
+  geom_smooth(method = "lm") +
+  xlim(12,50) +
+  theme_bw() +
+  xlab("Body mass index (kg/m2)") +
+  ylab("Polygenic risk score for BMI")
+
+p4 <-dat_bmi %>%
+  drop_na(bmi_prs, body_mass_index_bmi) %>%
+  mutate(iv_free = lm(body_mass_index_bmi ~ bmi_prs, data = .,)$resid) %>%
+  mutate(strata = generate_residualized_strata(iv_free, k = 9)) %>%
+    ggplot(aes(x = body_mass_index_bmi, y = bmi_prs, colour = strata)) +
+  geom_point(alpha = 0.01) + 
+  geom_smooth(method = "lm") +
+  xlim(12,50) +
+  theme_bw() +
+  xlab("Body mass index (kg/m2)") +
+  ylab("Polygenic risk score for BMI")
 
 
+dat_bmi %>%
+  drop_na(bmi_prs, body_mass_index_bmi) %>%
+  mutate(iv_free = lm(body_mass_index_bmi ~ bmi_prs, data = .,)$resid) %>%
+  mutate(strata = generate_residualized_strata(iv_free, k = 9)) %>%
+    ggplot(aes(x = iv_free, y = bmi_prs, colour = strata)) +
+  facet_wrap(~ strata) +
+  geom_point(alpha = 0.01) + 
+  geom_smooth(method = "lm", fullrange = T) +
+  theme_bw() +
+  xlab("IV-free BMI (kg/m2)") +
+  ylab("Polygenic risk score for BMI") +
+  xlim(-15,25)
+
+dat_bmi <- vroom::vroom("~/data/non-linear/pheno/analysis_data.tsv.gz", col_select = c("body_mass_index_bmi", "bmi_prs")) %>%
+  drop_na(body_mass_index_bmi) %>%
+  mutate(body_mass_index_bmi = RNOmni::RankNorm(body_mass_index_bmi))
+
+
+
+
+p1rn <- dat_bmi %>%
+  mutate(scale = scale(body_mass_index_bmi)) %>%
+  mutate(strata = generate_ranked_strata(exposure = body_mass_index_bmi, k = 9, instrument = bmi_prs, seed = 123)) %>%
+  ggplot(aes(x = body_mass_index_bmi)) +
+  geom_density() +
+  facet_wrap(~strata) +
+  xlim(-5,7.5) +
+  theme_bw() +
+  xlab("Body mass index (kg/m2)") +
+  ylab("Doubly-ranked method")
+
+p2rn <- dat_bmi %>%
+  drop_na(bmi_prs, body_mass_index_bmi) %>%
+  mutate(iv_free = lm(body_mass_index_bmi ~ bmi_prs, data = .,)$resid) %>%
+  mutate(strata = generate_residualized_strata(iv_free, k = 9)) %>%
+  ggplot(aes(x = body_mass_index_bmi)) +
+  geom_density() +
+  facet_wrap(~strata) +
+  xlim(-5,7.5) +
+  theme_bw() +
+  xlab("Body mass index (kg/m2)") +
+  ylab("Residual method")
+
+
+
+
+p3rn <- dat_bmi %>%
+  mutate(scale = scale(body_mass_index_bmi)) %>%
+  mutate(strata = generate_ranked_strata(exposure = body_mass_index_bmi, k = 9, instrument = bmi_prs, seed = 123)) %>%
+  ggplot(aes(x = body_mass_index_bmi, y = bmi_prs, colour = strata)) +
+  geom_point(alpha = 0.01) + 
+  geom_smooth(method = "lm") +
+  xlim(12,50) +
+  theme_bw() +
+  xlab("Body mass index (kg/m2)") +
+  ylab("Polygenic risk score for BMI")
+
+p4rn <-dat_bmi %>%
+  drop_na(bmi_prs, body_mass_index_bmi) %>%
+  mutate(iv_free = lm(body_mass_index_bmi ~ bmi_prs, data = .,)$resid) %>%
+  mutate(strata = generate_residualized_strata(iv_free, k = 9)) %>%
+    ggplot(aes(x = body_mass_index_bmi, y = bmi_prs, colour = strata)) +
+  geom_point(alpha = 0.01) + 
+  geom_smooth(method = "lm") +
+  xlim(12,50) +
+  theme_bw() +
+  xlab("Body mass index (kg/m2)") +
+  ylab("Polygenic risk score for BMI")
+
+p1rn
+(p1 + p2) / (p1rn + p2rn) + plot_layout(guides = "collect") + plot_annotation(tag_levels = "A") & theme(legend.position = 'bottom')
+ggsave("bmi_examples.tiff", height = 10, width = 12, compression = "lzw") 
+```
+
+
+Threshold at 0.5 vs gradually increasing
+
+```{r}
+
+p2 <- compare_thresh_exponential(exposure = "x", outcome = "y", reps = 200, seed = 1)
+
+p2$data %>%
+    # filter(beta_mr < quantile(beta_mr,0.975)) %>%
+    # filter(beta_mr > quantile(beta_mr,0.025)) %>%
+    filter(strata_method != "full") %>% 
+    arrange(strata) %>%
+    mutate(lower = beta_mr - 1.96 * se_mr, upper = beta_mr + 1.96 * se_mr) %>% 
+    ggplot(aes(x = strata, y = beta_mr)) +
+    geom_boxplot() +
+    theme_bw() +
+  geom_segment(aes(x = 1, xend = 5, y =0, yend = 0), linetype = "dashed", color = "red", size = 1) +
+    geom_segment(aes(x = 6, xend = 10, y =-0.2, yend = -0.2), linetype = "dashed", color = "red", size = 1) +
+    facet_wrap(~strata_method, scales = "free") +
+    labs( title = "MR effect estimates across strata" ) +
+    ylab("Betas from replicates (interquartile ranges)") 
+  
+    
+    
 ```
 

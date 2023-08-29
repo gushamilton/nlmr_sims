@@ -50,6 +50,7 @@ full_ss = data.frame(
   beta_gy = summary(fit2)$coef[2,1] , 
   se_gy = summary(fit2)$coef[2,2] , 
   p_gy = summary(fit2)$coef[2,4] ,
+  p_xy = summary(fit3)$coef[2,4] ,
   strata_method = "full"
   )
 
@@ -76,7 +77,7 @@ ranked_ss = wdata %>%
             se_gy = unlist( tidy(lm( .data[[outcome]] ~ g ))[2,3] ), 
             p_gx = unlist( tidy(lm( .data[[exposure]] ~ g ))[2,5] ),
             p_gy = unlist( tidy(lm( .data[[outcome]] ~ g ))[2,5] ),
-
+            p_xy = unlist( tidy(lm( .data[[outcome]] ~ .data[[exposure]]))[2,5] )
             ) 
 colnames(ranked_ss)[1] = "strata"
 ranked_ss$strata_method = "ranked"
@@ -100,6 +101,8 @@ residual_ss = wdata %>%
             se_gy = unlist( tidy(lm( .data[[outcome]] ~ g ))[2,3] ), 
             p_gx = unlist( tidy(lm( .data[[exposure]] ~ g ))[2,5] ),
             p_gy = unlist( tidy(lm( .data[[outcome]] ~ g ))[2,5] ),
+            p_xy = unlist( tidy(lm( .data[[outcome]] ~ .data[[exposure]]))[2,5] )
+  
 
   ) 
   colnames(residual_ss)[1] = "strata"
@@ -112,7 +115,8 @@ residual_ss = wdata %>%
   ss_out = rbind(full_ss, ss_out)
   
   ss_out <-ss_out %>%
-    mutate(beta_mr = beta_gy/beta_gx, se_mr = se_gy/beta_gx, p_mr = pnorm(abs(beta_mr/se_mr), lower.tail=FALSE))
+    mutate(beta_mr = beta_gy/beta_gx, se_mr = se_gy/beta_gx, p_mr = pnorm(abs(beta_mr/se_mr), lower.tail=F)
+          )
 
   ss_out$strata = factor(ss_out$strata, levels = 0:nrow(ranked_ss) ) 
   

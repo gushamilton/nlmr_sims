@@ -1,10 +1,10 @@
-sim_mydata_outcomes_u <- function(n = 100000,
-                       mu = c(0, 0, 0), 
-                       sd = c(1, 1, 1), 
-                       r = c(0.3, 0.02, 0.1), 
-                       varnames = c("g", "x", "y"),
-                       seed = seed
-                       ){ 
+sim_mydata_outcomes_thresh_big <- function(n = 100000,
+                                           mu = c(0, 0, 0), 
+                                           sd = c(1, 1, 1), 
+                                           r = c(0.3, 0.02, 0.1), 
+                                           varnames = c("g", "x", "y"),
+                                           seed = seed
+){ 
   
   ########################
   ## Simulate the data 
@@ -20,7 +20,7 @@ sim_mydata_outcomes_u <- function(n = 100000,
                               r = r, 
                               varnames = varnames,
                               empirical = FALSE) %>%
-    mutate(y = rnorm(100000) + 0.05 * x^2)
+    mutate(y = if_else(x < 0, 0, -0.2 * x ) + rnorm(100000))
   
   ########################
   ## produce transformed 
