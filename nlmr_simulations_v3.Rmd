@@ -281,7 +281,7 @@ Randomly selected linear
 
 ```{r}
 
-map2(.x = analyses$exposures[10:25], .y = analyses$outcomes[10:25], seed = 2023, reps = 100, .f = generate_outcome_plots_replicates_with_selection)
+map2(.x = analyses$exposures, .y = analyses$outcomes, seed = 2023, reps = 100, .f = generate_outcome_plots_replicates_with_selection)
 ```
 
 Now thresholded IV
@@ -293,7 +293,6 @@ map2(.x = analyses$exposures, .y = analyses$outcomes, seed = 2023, reps = 100, .
 Now for a real exposure:
 
 ```{r}
-
 dat_bmi <- vroom::vroom("~/data/non-linear/pheno/analysis_data.tsv.gz", col_select = c("body_mass_index_bmi", "bmi_prs"))
 
 p1 <- dat_bmi %>%
@@ -360,15 +359,16 @@ dat_bmi %>%
   ylab("Polygenic risk score for BMI") +
   xlim(-15,25)
 
-dat_bmi <- vroom::vroom("~/data/non-linear/pheno/analysis_data.tsv.gz", col_select = c("body_mass_index_bmi", "bmi_prs")) %>%
+
+
+dat_bmi_rn <- vroom::vroom("~/data/non-linear/pheno/analysis_data.tsv.gz", col_select = c("body_mass_index_bmi", "bmi_prs")) %>%
   drop_na(body_mass_index_bmi) %>%
   mutate(body_mass_index_bmi = RNOmni::RankNorm(body_mass_index_bmi))
 
 
 
 
-p1rn <- dat_bmi %>%
-  mutate(scale = scale(body_mass_index_bmi)) %>%
+p1rn <- dat_bmi_rn %>%
   mutate(strata = generate_ranked_strata(exposure = body_mass_index_bmi, k = 9, instrument = bmi_prs, seed = 123)) %>%
   ggplot(aes(x = body_mass_index_bmi)) +
   geom_density() +
@@ -378,7 +378,8 @@ p1rn <- dat_bmi %>%
   xlab("Body mass index (kg/m2)") +
   ylab("Doubly-ranked method")
 
-p2rn <- dat_bmi %>%
+
+p2rn <- dat_bmi_rn %>%
   drop_na(bmi_prs, body_mass_index_bmi) %>%
   mutate(iv_free = lm(body_mass_index_bmi ~ bmi_prs, data = .,)$resid) %>%
   mutate(strata = generate_residualized_strata(iv_free, k = 9)) %>%
@@ -393,32 +394,235 @@ p2rn <- dat_bmi %>%
 
 
 
-p3rn <- dat_bmi %>%
-  mutate(scale = scale(body_mass_index_bmi)) %>%
+p3rn <- dat_bmi_rn %>%
+
   mutate(strata = generate_ranked_strata(exposure = body_mass_index_bmi, k = 9, instrument = bmi_prs, seed = 123)) %>%
   ggplot(aes(x = body_mass_index_bmi, y = bmi_prs, colour = strata)) +
   geom_point(alpha = 0.01) + 
   geom_smooth(method = "lm") +
-  xlim(12,50) +
+  xlim(-3.5,3.5) +
   theme_bw() +
-  xlab("Body mass index (kg/m2)") +
+  xlab("Body mass index (single normalised") +
   ylab("Polygenic risk score for BMI")
 
-p4rn <-dat_bmi %>%
+p3rn + p3
+p4rn <-dat_bmi_rn %>%
   drop_na(bmi_prs, body_mass_index_bmi) %>%
   mutate(iv_free = lm(body_mass_index_bmi ~ bmi_prs, data = .,)$resid) %>%
   mutate(strata = generate_residualized_strata(iv_free, k = 9)) %>%
     ggplot(aes(x = body_mass_index_bmi, y = bmi_prs, colour = strata)) +
   geom_point(alpha = 0.01) + 
   geom_smooth(method = "lm") +
-  xlim(12,50) +
+    xlim(-3.5,3.5) +
   theme_bw() +
-  xlab("Body mass index (kg/m2)") +
+  xlab("Body mass index (rank-transformed)") +
   ylab("Polygenic risk score for BMI")
 
-p1rn
-(p1 + p2) / (p1rn + p2rn) + plot_layout(guides = "collect") + plot_annotation(tag_levels = "A") & theme(legend.position = 'bottom')
-ggsave("bmi_examples.tiff", height = 10, width = 12, compression = "lzw") 
+p3rn
+(p1 + p2) / (p3 + p4) + plot_layout(guides = "collect") + plot_annotation(tag_levels = "A") & theme(legend.position = 'bottom')
+ggsave("bmi_examples_not_transformed.tiff", height = 10, width = 12, compression = "lzw") 
+
+
+(p1rn + p2rn) / (p3rn + p4rn) + plot_layout(guides = "collect") + plot_annotation(tag_levels = "A") & theme(legend.position = 'bottom')
+ggsave("bmi_examples_transformed.tiff", height = 10, width = 12, compression = "lzw") 
+
+
+
+# doubly-doubly-ranlked
+
+
+
+p1drn <- dat_bmi_rn %>%
+  mutate(strata = generate_ranked_strata(exposure = body_mass_index_bmi, k = 9, instrument = bmi_prs, seed = 123)) %>%
+  group_by(strata) %>%
+  mutate(body_mass_index_bmi = RNOmni::RankNorm(body_mass_index_bmi)) %>%
+  ggplot(aes(x = body_mass_index_bmi)) +
+  geom_density() +
+  facet_wrap(~strata) +
+  xlim(-5,7.5) +
+  theme_bw() +
+  xlab("Body mass index (single-normalised)") +
+  ylab("DPolygenic risk score for BMI")
+
+
+
+p2drn <- dat_bmi_rn %>%
+  drop_na(bmi_prs, body_mass_index_bmi) %>%
+  mutate(iv_free = lm(body_mass_index_bmi ~ bmi_prs, data = .,)$resid) %>%
+  mutate(strata = generate_residualized_strata(iv_free, k = 9)) %>%
+  group_by(strata) %>%
+    mutate(body_mass_index_bmi = RNOmni::RankNorm(body_mass_index_bmi)) %>%
+  ggplot(aes(x = body_mass_index_bmi)) +
+  geom_density() +
+  facet_wrap(~strata) +
+  xlim(-5,7.5) +
+  theme_bw() +
+  xlab("Body mass index (kg/m2)") +
+  ylab("Residual method")
+
+
+
+
+p3drn <- dat_bmi_rn %>%
+
+  mutate(strata = generate_ranked_strata(exposure = body_mass_index_bmi, k = 9, instrument = bmi_prs, seed = 123)) %>%
+    group_by(strata) %>%
+    mutate(body_mass_index_bmi = RNOmni::RankNorm(body_mass_index_bmi) + mean(body_mass_index_bmi)) %>%
+  ggplot(aes(x = body_mass_index_bmi, y = bmi_prs, colour = strata)) +
+  geom_point(alpha = 0.01) + 
+  geom_smooth(method = "lm") +
+  xlim(-3.5,3.5) +
+  theme_bw() +
+  xlab("Body mass index (doubly-normalised)") +
+  ylab("Polygenic risk score for BMI")
+
+
+p3drn
+p3 + p3rn + p3drn + plot_annotation(tag_levels = "A") + plot_layout(guides = "collect")
+ggsave("bmi_single_double.tiff", height = 5, width = 17, compression = "lzw") 
+p4rn <-dat_bmi_rn %>%
+  drop_na(bmi_prs, body_mass_index_bmi) %>%
+  mutate(iv_free = lm(body_mass_index_bmi ~ bmi_prs, data = .,)$resid) %>%
+  mutate(strata = generate_residualized_strata(iv_free, k = 9)) %>%
+    ggplot(aes(x = body_mass_index_bmi, y = bmi_prs, colour = strata)) +
+  geom_point(alpha = 0.01) + 
+  geom_smooth(method = "lm") +
+    xlim(-3.5,3.5) +
+  theme_bw() +
+  xlab("Body mass index (rank-transformed)") +
+  ylab("Polygenic risk score for BMI")
+
+
+
+
+#  tables
+```
+
+TABLES
+
+
+```{r}
+
+dat_bmi <- vroom::vroom("~/data/non-linear/pheno/analysis_data.tsv.gz", col_select = c("body_mass_index_bmi", "bmi_prs"))
+dat_bmi$body_mass_index_bmi = scale(dat_bmi$body_mass_index_bmi)
+
+dr_raw <- dat_bmi %>%
+  mutate(scale = scale(body_mass_index_bmi)) %>%
+  mutate(strata = generate_ranked_strata(exposure = body_mass_index_bmi, k = 9, instrument = bmi_prs, seed = 123)) %>%
+  group_by(strata) %>%
+       nest() %>%
+  mutate(res = map(data, .f = function(d) {tidy(lm(body_mass_index_bmi~ bmi_prs, data = d))})) %>%
+  unnest(res) %>%
+  filter(term == "bmi_prs") %>%
+  arrange(strata) %>%
+  select(estimate, std.error) %>%
+  mutate(method = "untransformed", approach = "doubly-ranked")
+
+
+
+res_raw <- dat_bmi %>%
+  drop_na(bmi_prs, body_mass_index_bmi) %>%
+  mutate(iv_free = lm(body_mass_index_bmi ~ bmi_prs, data = .,)$resid) %>%
+  mutate(strata = generate_residualized_strata(iv_free, k = 9)) %>%
+  group_by(strata) %>%
+       nest() %>%
+  mutate(res = map(data, .f = function(d) {tidy(lm(body_mass_index_bmi~ bmi_prs, data = d))})) %>%
+  unnest(res) %>%
+  filter(term == "bmi_prs") %>%
+  arrange(strata) %>%
+  select(estimate, std.error) %>%
+  mutate(method = "untransformed", approach = "residual")
+
+dr_sn <- dat_bmi_rn %>%
+
+  mutate(strata = generate_ranked_strata(exposure = body_mass_index_bmi, k = 9, instrument = bmi_prs, seed = 123)) %>%
+    group_by(strata) %>%
+    nest() %>%
+  mutate(res = map(data, .f = function(d) {tidy(lm(body_mass_index_bmi~ bmi_prs, data = d))})) %>%
+  unnest(res) %>%
+  filter(term == "bmi_prs") %>%
+  arrange(strata) %>%
+  select(estimate, std.error) %>%
+  mutate(method = "single-normalised", approach = "doubly-ranked")
+
+res_sn <- dat_bmi_rn %>%
+
+ drop_na(bmi_prs, body_mass_index_bmi) %>%
+  mutate(iv_free = lm(body_mass_index_bmi ~ bmi_prs, data = .,)$resid) %>%
+  mutate(strata = generate_residualized_strata(iv_free, k = 9)) %>%
+    group_by(strata) %>%
+    nest() %>%
+  mutate(res = map(data, .f = function(d) {tidy(lm(body_mass_index_bmi~ bmi_prs, data = d))})) %>%
+  unnest(res) %>%
+  filter(term == "bmi_prs") %>%
+  arrange(strata) %>%
+  select(estimate, std.error) %>%
+  mutate(method = "single-normalised", approach = "residual")
+  
+dr_dn <- dat_bmi_rn %>%
+
+  mutate(strata = generate_ranked_strata(exposure = body_mass_index_bmi, k = 9, instrument = bmi_prs, seed = 123)) %>%
+    group_by(strata) %>%
+    mutate(body_mass_index_bmi = RNOmni::RankNorm(body_mass_index_bmi) + mean(body_mass_index_bmi)) %>%
+    nest() %>%
+  mutate(res = map(data, .f = function(d) {tidy(lm(body_mass_index_bmi~ bmi_prs, data = d))})) %>%
+  unnest(res) %>%
+  filter(term == "bmi_prs") %>%
+  arrange(strata) %>%
+  select(estimate, std.error) %>%
+  mutate(method = "doubly-normalised", approach = "doubly-ranked")
+
+
+res_dn <- dat_bmi %>%
+  drop_na(bmi_prs, body_mass_index_bmi) %>%
+
+    mutate(iv_free = lm(body_mass_index_bmi ~ bmi_prs, data = .,)$resid) %>%
+  mutate(strata = generate_residualized_strata(iv_free, k = 9)) %>%
+    group_by(strata) %>%
+    mutate(body_mass_index_bmi = RNOmni::RankNorm(body_mass_index_bmi[,1]) + mean(body_mass_index_bmi)) %>%
+  group_by(strata) %>%
+    nest() %>%
+  mutate(res = map(data, .f = function(d) {tidy(lm(body_mass_index_bmi~ bmi_prs, data = d))})) %>%
+  unnest(res) %>%
+  filter(term == "bmi_prs") %>%
+  arrange(strata) %>%
+  select(estimate, std.error) %>%
+  mutate(method = "doubly-normalised", approach = "residual")
+
+
+
+bind_rows(
+  res_sn,
+  res_dn,
+  res_raw,
+  dr_raw,
+  dr_sn,
+  dr_dn
+) %>%
+  ungroup() %>%
+  mutate(estimate = signif(estimate, 3), std.error = signif(std.error, 3)) %>%
+  transmute(estimate = paste0(estimate, " (", std.error, ")"),
+         approach = paste0(method, "_", approach), strata) %>%
+  pivot_wider(values_from = estimate, names_from = approach) %>%
+  gt::gt()
+
+
+
+# figures 
+
+dat_bmi_rn %>%
+
+  mutate(strata = generate_ranked_strata(exposure = body_mass_index_bmi, k = 9, instrument = bmi_prs, seed = 123)) %>%
+    group_by(strata) %>%
+    mutate(body_mass_index_bmi_rnt = RNOmni::RankNorm(body_mass_index_bmi) + mean(body_mass_index_bmi)) %>%
+  ungroup() %>%
+  transmute(strata,
+            bmi_prs_rnt = bmi_prs,
+            body_mass_index_bmi_rnt = body_mass_index_bmi) %>%
+  bind_cols(dat_bmi %>% drop_na()) %>%
+  summarise(cor_bmi = cor(body_mass_index_bmi_rnt, body_mass_index_bmi))
+
+
 ```
 
 
@@ -426,7 +630,7 @@ Threshold at 0.5 vs gradually increasing
 
 ```{r}
 
-p2 <- compare_thresh_exponential(exposure = "x", outcome = "y", reps = 200, seed = 1)
+p2 <- compare_thresh_exponential(exposure = "x", outcome = "y", reps = 100, seed = 2)
 
 p2$data %>%
     # filter(beta_mr < quantile(beta_mr,0.975)) %>%
@@ -437,13 +641,178 @@ p2$data %>%
     ggplot(aes(x = strata, y = beta_mr)) +
     geom_boxplot() +
     theme_bw() +
-  geom_segment(aes(x = 1, xend = 5, y =0, yend = 0), linetype = "dashed", color = "red", size = 1) +
-    geom_segment(aes(x = 6, xend = 10, y =-0.2, yend = -0.2), linetype = "dashed", color = "red", size = 1) +
+  geom_segment(aes(x = 0, xend = 25, y =-0, yend = 0), linetype = "dashed", color = "red", size = 1) +
+    geom_segment(aes(x = 25, xend = 50, y =-0.5, yend = -0.5), linetype = "dashed", color = "red", size = 1) +
     facet_wrap(~strata_method, scales = "free") +
     labs( title = "MR effect estimates across strata" ) +
     ylab("Betas from replicates (interquartile ranges)") 
   
+
+ggsave(filename= "figures/for_paper/threshold_effect.tiff",plot = p2, height = 5, width = 10)    
+```
+
+Now RINT
+
+```{r}
+map2(.x = analyses$exposures, .y = analyses$outcomes, seed = 2023, reps = 100, .f = generate_outcome_plots_linear_replicates_RINT)
+```
+
+Now try doing random simulations to see if meta-analysis works - yep in a simple linear situation it always works!!
+
+```{r}
+analyses <- crossing(
+  exposures = c("x", "x_exp", "x_beta", "x_uni", "x_gamma"),
+outcomes = c("y")
+)
+ma_fit <- map2_dfr(.x = analyses$exposures, .y = analyses$outcomes, seed = 2023, .f = run_linear_plots_meta_analysis, replicates = 30, n = 25000)
+ma_fit2 <- map2_dfr(.x = analyses$exposures, .y = analyses$outcomes, seed = 2023, .f = run_linear_plots_meta_analysis, replicates = 30, n = 25000)
+ma_fit <- map2_dfr(.x = "x", .y = "y", seed = 2023, .f = run_linear_plots_meta_analysis, replicates = 1000)
+ma_fit %>%
+  filter(outcome == "y") %>%
+  ggplot(aes(x = true, y = beta_mr)) +
+  geom_point() +
+  facet_wrap(~ exposure ) +
+  geom_abline() +
+  ggtitle("Standard MR estimates are biased when the outcome is non-normal") +
+  labs(subtitle = "Comparison of true effect estimates vs MR estimates across a number of exposure distributions") +
+  theme_bw() +
+  xlab("True beta") +
+  ylab("Reported beta")
+
+
+ggsave("sim_ma/true_vs_conventional_MR.tiff", compression = "lzw", height = 8, width = 8)
+
+
+ma_fit2 %>%
+ filter(outcome == "y") %>%
+  ggplot(aes(x = mr_beta_fe, y = beta_mr)) +
+  # geom_errorbar(aes(ymin = beta_mr - se_mr, ymax = beta_mr + se_mr)) +
+  geom_point(aes(colour = method)) +
+  facet_wrap(~ exposure, scales = "free") +
+  geom_abline()  +
+   ggtitle("Meta-analyses across strata tend to match summary estimates in simulations") +
+  labs(subtitle = "Comparison of conventional MR vs fixed effects meta-analysis across strata") +
+  xlab("IVW meta-analysis across strata") +
+  ylab("Conventional MR estimate")
+
+ggsave("sim_ma/IVW_vs_conventional_MR.tiff", compression = "lzw", height = 8, width = 8)
+
+
+ma_fit2 %>%
+ filter(outcome == "y") %>%
+  ggplot(aes(x = mr_beta_re, y = beta_mr)) +
+  geom_errorbar(aes(ymin = beta_mr - se_mr, ymax = beta_mr + se_mr)) +
+  geom_point(aes(colour = method)) +
+  facet_wrap(~ exposure, scales = "free") +
+  geom_abline()  +
+   ggtitle("Meta-analyses across strata tend to match summary estimates in simulations") +
+  labs(subtitle = "Comparison of conventional MR vs random effects meta-analysis across strata") +
+  xlab("RE meta-analysis across strata") +
+  ylab("Conventional MR estimate")
+
+
+
+ma_fit2 %>%
+   filter(outcome == "y") %>%
+  ggplot(aes(x = se_mr, y = mr_se_fe, colour = method)) +
+  geom_point() +
+  facet_wrap(~ exposure , scales = "free") +
+    theme_bw() +
+  theme(legend.position = "bottom") +
+  xlab("Overall standard error") +
+  ylab("Standard error from FE ma across strata") +
+  ggtitle("SEs of FE meta-analysis are close to SEs of the main analysis but \ndiffer with differing distributions ") +
+  labs(substile = "Note scale difference across strata")
+
+
+ggsave("sim_ma/IVW_SEvs_conventional_MR_SE.tiff", compression = "lzw", height = 8, width = )
+
+
+ma_fit2 %>%  
+   filter(outcome == "y") %>%
+   # filter(exposure == "x") %>%
+  mutate(abs_se_diff = abs(mr_se_fe-se_mr)/se_mr) %>%
+  ggplot(aes(x = abs_se_diff, y = beta_mr, colour = method)) +
+  geom_point() +
+  facet_wrap(~ exposure, scales = "free") +
+  theme_bw() +
+  xlab("Absolute SE difference (%)") +
+  ylab("Beta coefficent") +
+ scale_x_continuous(labels = scales::percent_format(scale = 100)) +
+   ggtitle("SE's from the IVW across strata are well controlled when betas \nare relatively small ")
+
+
+ggsave("sim_ma/IVW_SE_vs_IVW_betas.tiff", compression = "lzw", height = 10, width = 10)
+
+ma_fit %>%
+  mutate(abs_se_diff = abs(mr_se_fe-se_mr)/se_mr) %>%
+  arrange(-abs_se_diff)
+
+ma_fit %>%
+   filter(outcome == "y" &  exposure == "x") %>%
+  ggplot(aes(x = beta_gy, y = by_beta_fe, colour = method)) +
+  geom_point() +
+  facet_wrap(~ exposure + outcome) +
+  geom_abline() +
+    theme_bw() +
+  theme(legend.position = "bottom") +
+  xlab("Overall standard error") +
+  ylab("Standard error from RE ma across strata")
+
+ma_fit %>%
+   filter(outcome == "y" &  exposure == "x") %>%
+  ggplot(aes(x = beta_gy, y = by_beta_fe, colour = method)) +
+  geom_point() +
+  facet_wrap(~ exposure + outcome) +
+  geom_abline() +
+    theme_bw() +
+  theme(legend.position = "bottom") +
+  xlab("Overall standard error") +
+  ylab("Standard error from RE ma across strata")
+
+
+ma_fit %>%
+   filter(outcome == "y" &  exposure == "x" & method == "ranked") %>%
+  bind_rows(
     
-    
+    tibble(se_mr = 0.0631, mr_se_fe = 0.0256, method = "steve")
+  ) %>%
+  ggplot(aes(x = se_mr, y = mr_se_fe, colour = method)) +
+  geom_point() +
+  # facet_wrap(~ exposure + outcome) +
+    theme_bw() +
+  geom_abline() +
+  geom_smooth(method = "lm") +
+  theme(legend.position = "bottom") +
+  xlab("Overall standard error") +
+  ylab("Standard error from FE ma across strata") +
+  scale_x_log10() +
+  scale_y_log10()
+
+ma_fit %>%
+   group_by(exposure,outcome,method) %>%
+  nest() %>%
+  mutate(res = map(data, .f = function(df) {tidy(lm(se_mr ~ mr_se_fe, data = df))})) %>%
+  unnest(res)
+
+s <- ma_fit %>%
+  filter(method == "ranked") %>%
+   filter(outcome == "y" &  exposure == "x") %>%
+  select(se_mr, mr_se_fe)
+
+s %>%
+  mutate(ratio = mr_se_fe/se_mr) %>%
+  ggplot(aes(x = ratio)) +
+  geom_histogram()
+
+m <- lm(se_mr ~ mr_se_fe, data = s)
+glance(m)
+```
+
+
+
+
+```{r}
+
 ```
 

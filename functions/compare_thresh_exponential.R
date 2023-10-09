@@ -6,7 +6,7 @@ compare_thresh_exponential <- function(exposure, outcome, seed = "123", reps = 1
   replicate_internally <- function(n_rep) {
     seed = seed + n_rep
     dat <-  sim_mydata_outcomes_thresh_big(n = 100000, seed = seed)
-    dat_with_both <- generate_all_sumstats(data = dat, exposure = exposure, outcome = outcome, k = 10)
+    dat_with_both <- generate_all_sumstats(data = dat, exposure = exposure, outcome = outcome, k = 50)
     
     ## redefine data set
     
